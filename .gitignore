@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+Pipfile.lock
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Local development settings
+.idea/
+.vscode/
+*.pydevproject
+*.project
+*.settings/
+
+# Virtual environments
+venv/
+env/
+*.venv/
+
+# Log files
+*.log
+log/
+logs/
+
+# Other generated files
+*.swp
+*.bak
+.DS_Store
