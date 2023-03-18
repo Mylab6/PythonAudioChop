@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 pydub = "*"
 numpy = "*"
+pyqt6 = "*"
 
 [dev-packages]
 
