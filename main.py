@@ -1,66 +1,90 @@
-import wave
-import numpy as np
-import tkinter as tk
-from tkinter import filedialog
-from tkinter import messagebox
+import os
+from PyQt6.QtWidgets import *
+from pydub import AudioSegment
 
-class WavSegmenter:
-    def __init__(self, segment_duration):
-        self.segment_duration = segment_duration
+class WavSplitter(QWidget):
+    def __init__(self):
+        super().__init__()
 
-    def split(self, input_file, output_prefix):
-        with wave.open(input_file, "rb") as wav_file:
-            num_channels = wav_file.getnchannels()
-            sample_rate = wav_file.getframerate()
-            segment_frames = int(self.segment_duration * sample_rate)
-            audio_data = np.frombuffer(wav_file.readframes(-1), dtype=np.int16)
-            total_frames = len(audio_data)
-            num_segments = int(np.ceil(total_frames / segment_frames))
-            for i in range(num_segments):
-                start_frame = i * segment_frames
-                end_frame = min((i + 1) * segment_frames, total_frames)
-                with wave.open(f"{output_prefix}_{i}.wav", "wb") as segment_file:
-                    segment_file.setnchannels(num_channels)
-                    segment_file.setframerate(sample_rate)
-                    segment_file.setsampwidth(wav_file.getsampwidth())
-                    segment_file.writeframes(audio_data[start_frame:end_frame].tobytes())
-            messagebox.showinfo("Success", f"Successfully split {input_file} into {num_segments} segments.")
-            
+        self.input_file_label = QLabel("No file selected")
+        self.select_input_file_button = QPushButton("Select input file", self)
+        self.select_input_file_button.clicked.connect(self.select_input_file)
 
-class Application(tk.Frame):
-    def __init__(self, master=None):
-        super().__init__(master)
-        self.master = master
-        self.segment_duration = tk.StringVar()
-        self.input_file = tk.StringVar()
-        self.output_prefix = tk.StringVar()
-        self.create_widgets()
+        self.output_file_label = QLabel("No output path selected")
+        self.select_output_path_button = QPushButton("Select output path", self)
+        self.select_output_path_button.clicked.connect(self.select_output_path)
 
-    def create_widgets(self):
-        tk.Label(self.master, text="Segment duration (seconds):").grid(row=0, column=0)
-        tk.Entry(self.master, textvariable=self.segment_duration).grid(row=0, column=1)
-        tk.Button(self.master, text="Select input file (.wav)", command=self.select_input_file).grid(row=1, column=0)
-        tk.Entry(self.master, textvariable=self.input_file).grid(row=1, column=1)
-        tk.Button(self.master, text="Select output prefix", command=self.select_output_prefix).grid(row=2, column=0)
-        tk.Entry(self.master, textvariable=self.output_prefix).grid(row=2, column=1)
-        tk.Button(self.master, text="Split", command=self.split).grid(row=3, column=0)
+        self.prefix_label = QLabel("File prefix:")
+        self.prefix_textbox = QLineEdit()
+
+        self.split_button = QPushButton("Split", self)
+        self.split_button.clicked.connect(self.split)
+
+        self.normalize_checkbox = QCheckBox("Normalize")
+
+        self.duration_label = QLabel("Duration (in seconds):")
+        self.duration_textbox = QLineEdit()
+
+        vbox = QVBoxLayout()
+        hbox1 = QHBoxLayout()
+        hbox1.addWidget(QLabel("Input file:"))
+        hbox1.addWidget(self.input_file_label)
+        hbox1.addWidget(self.select_input_file_button)
+        vbox.addLayout(hbox1)
+        hbox2 = QHBoxLayout()
+        hbox2.addWidget(QLabel("Output path:"))
+        hbox2.addWidget(self.output_file_label)
+        hbox2.addWidget(self.select_output_path_button)
+        vbox.addLayout(hbox2)
+        hbox3 = QHBoxLayout()
+        hbox3.addWidget(self.prefix_label)
+        hbox3.addWidget(self.prefix_textbox)
+        vbox.addLayout(hbox3)
+        vbox.addWidget(self.normalize_checkbox)
+        hbox4 = QHBoxLayout()
+        hbox4.addWidget(self.duration_label)
+        hbox4.addWidget(self.duration_textbox)
+        vbox.addLayout(hbox4)
+        vbox.addWidget(self.split_button)
+        hbox5 = QHBoxLayout()
+        hbox5.addWidget(QLabel("Status:"))
+        self.status_label = QLabel("")
+        hbox5.addWidget(self.status_label)
+        vbox.addLayout(hbox5)
+        self.setLayout(vbox)
+        self.show()
 
     def select_input_file(self):
-        filetypes = [("WAV files", "*.wav")]
-        file_path = filedialog.askopenfilename(filetypes=filetypes)
-        if file_path:
-            self.input_file.set(file_path)
+        filename, _ = QFileDialog.getOpenFileName(self, "Open file", os.getenv("HOME"), "Audio files (*.wav)")
+        if filename:
+            self.input_file_label.setText(filename)
 
-    def select_output_prefix(self):
-        file_path = filedialog.asksaveasfilename(defaultextension=".wav")
-        if file_path:
-            self.output_prefix.set(file_path)
+    def select_output_path(self):
+        dirname = QFileDialog.getExistingDirectory(self, "Select output directory", os.getenv("HOME"))
+        if dirname:
+            self.output_file_label.setText(dirname)
 
     def split(self):
-        segmenter = WavSegmenter(float(self.segment_duration.get()))
-        segmenter.split(self.input_file.get(), self.output_prefix.get())
+        try:
+            audio = AudioSegment.from_file(self.input_file_label.text())
+            length = len(audio)
+            segment_duration = int(float(self.duration_textbox.text()) * 1000)
+            num_segments = length // segment_duration
+            output_dir_path = self.output_file_label.text()
+            prefix = self.prefix_textbox.text()
+            os.makedirs(output_dir_path, exist_ok=True)
+            if self.normalize_checkbox.isChecked():
+                audio = audio.apply_gain(-audio.dBFS)
+            for i in range(num_segments):
+                start = i * segment_duration
+                end = start + segment_duration
+                output_file_path = os.path.join(output_dir_path, f"{prefix}_{i}.wav")
+                audio[start:end].export(output_file_path, format="wav")
+            self.status_label.setText("Done")
+        except:
+            self.status_label.setText("Error")
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = Application(master=root)
-    app.mainloop()
+    app = QApplication([])
+    splitter = WavSplitter()
+    app.exec()
