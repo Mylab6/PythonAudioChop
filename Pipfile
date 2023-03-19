@@ -7,6 +7,8 @@ name = "pypi"
 pydub = "*"
 numpy = "*"
 pyqt6 = "*"
+pysimplegui = "*"
+aubio = "*"
 
 [dev-packages]
 
