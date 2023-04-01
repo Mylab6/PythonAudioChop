@@ -1,25 +1,12 @@
 import os
-import aubio
-import numpy as np
-from pydub import AudioSegment
+#import librosa
+from pydub import AudioSegment, silence
 import PySimpleGUI as sg
 
-def detect_regions(input_file, threshold=-70):
-    win_s = 1024
-    hop_s = win_s // 2
-    src = aubio.source(input_file, hop_s, hop_s)
-    o = aubio.onset('default', win_s, hop_s, src.samplerate)
-    o.set_threshold(threshold)
-    regions = []
-
-    while True:
-        samples, read = src()
-        if o(samples):
-            regions.append(o.get_last())
-        if read < hop_s:
-            break
-
-    return [int(region * 1000) for region in regions]
+def detect_silent_regions(input_file, threshold=-70, min_silence_len=500):
+    audio = AudioSegment.from_wav(input_file)
+    regions = silence.detect_silence(audio, min_silence_len=min_silence_len, silence_thresh=threshold)
+    return [r[0] for r in regions]
 
 def split_audio(input_file, output_dir, prefix, regions):
     audio = AudioSegment.from_wav(input_file)
@@ -42,6 +29,7 @@ def main():
         [sg.Text('Select a WAV file to split')],
         [sg.Input(), sg.FileBrowse(file_types=(("WAV Files", "*.wav"),))],
         [sg.Text('Threshold (lower value detects more regions, default -70)'), sg.InputText('-70')],
+        [sg.Text('Min silence length in ms (default 500)'), sg.InputText('500')],
         [sg.Text('Select output directory'), sg.Input(key='output_dir'), sg.FolderBrowse()],
         [sg.Text('Output file prefix'), sg.InputText('output', key='prefix')],
         [sg.Button('Split'), sg.Button('Exit')],
@@ -57,7 +45,8 @@ def main():
 
         if event == 'Split':
             input_file = values[0]
-            threshold = float(values[1])
+            threshold = int(values[1])
+            min_silence_len = int(values[2])
             output_dir = values['output_dir']
             prefix = values['prefix']
 
@@ -66,7 +55,7 @@ def main():
                 continue
 
             try:
-                regions = detect_regions(input_file, threshold)
+                regions = detect_silent_regions(input_file, threshold, min_silence_len)
                 output_files = split_audio(input_file, output_dir, prefix, regions)
                 window['output'].update(f"Split complete. Created {len(output_files)} files:\n" + "\n".join(output_files))
             except Exception as e:

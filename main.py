@@ -20,7 +20,7 @@ class WavSplitter(QWidget):
         self.split_button = QPushButton("Split", self)
         self.split_button.clicked.connect(self.split)
 
-        self.normalize_checkbox = QCheckBox("Normalize")
+        self.normalize_checkbox = QCheckBox("Half Normalize")
 
         self.duration_label = QLabel("Duration (in seconds):")
         self.duration_textbox = QLineEdit()
@@ -74,7 +74,7 @@ class WavSplitter(QWidget):
             prefix = self.prefix_textbox.text()
             os.makedirs(output_dir_path, exist_ok=True)
             if self.normalize_checkbox.isChecked():
-                audio = audio.apply_gain(-audio.dBFS)
+                audio = audio.apply_gain(-audio.dBFS/2)
             for i in range(num_segments):
                 start = i * segment_duration
                 end = start + segment_duration
