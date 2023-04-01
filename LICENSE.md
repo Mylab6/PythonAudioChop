@@ -1,5 +1,3 @@
-# Released under MIT License
-
 Copyright (c) 2023 mylab6.
 
 
